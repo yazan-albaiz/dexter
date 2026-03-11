@@ -173,6 +173,7 @@ export async function runCli() {
 
   const modelSelection = new ModelSelectionController(onError, () => {
     intro.setModel(modelSelection.model);
+    agentRunner.setModel(modelSelection.model, modelSelection.provider);
     renderSelectionOverlay();
     tui.requestRender();
   });
