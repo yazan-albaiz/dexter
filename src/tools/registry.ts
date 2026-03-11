@@ -1,6 +1,8 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch, createFinancialMetrics, createReadFilings } from './finance/index.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { chatgptWebSearchProxy } from './search/chatgpt-search.js';
+import { isOAuthLoggedIn } from '../auth/openai-oauth.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
@@ -98,22 +100,36 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   ];
 
   // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
+  let hasWebSearch = false;
   if (process.env.EXASEARCH_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: exaSearch,
       description: WEB_SEARCH_DESCRIPTION,
     });
+    hasWebSearch = true;
   } else if (process.env.PERPLEXITY_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: perplexitySearch,
       description: WEB_SEARCH_DESCRIPTION,
     });
+    hasWebSearch = true;
   } else if (process.env.TAVILY_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: tavilySearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+    hasWebSearch = true;
+  }
+
+  // If using ChatGPT OAuth and no external search API key is configured,
+  // register the built-in web search proxy (actual search handled by Responses API)
+  if (!hasWebSearch && isOAuthLoggedIn()) {
+    tools.push({
+      name: 'web_search',
+      tool: chatgptWebSearchProxy,
       description: WEB_SEARCH_DESCRIPTION,
     });
   }

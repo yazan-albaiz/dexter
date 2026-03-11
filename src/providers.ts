@@ -67,6 +67,13 @@ export const PROVIDERS: ProviderDef[] = [
     fastModel: 'openrouter:openai/gpt-4o-mini',
   },
   {
+    id: 'chatgpt',
+    displayName: 'ChatGPT (OAuth)',
+    modelPrefix: 'chatgpt:',
+    // No apiKeyEnvVar — uses OAuth tokens instead of API key
+    fastModel: 'chatgpt:gpt-4.1-mini',
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',

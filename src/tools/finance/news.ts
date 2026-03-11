@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useYahooFinance, yahooGetCompanyNews } from './yahoo-api.js';
 
 const CompanyNewsInputSchema = z.object({
   ticker: z
@@ -19,6 +20,10 @@ export const getCompanyNews = new DynamicStructuredTool({
     'Retrieves recent company news headlines for a stock ticker, including title, source, publication date, and URL. Use for company catalysts, price move explanations, press releases, and recent announcements.',
   schema: CompanyNewsInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const data = await yahooGetCompanyNews(input.ticker, input.limit);
+      return formatToolResult(data);
+    }
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker.trim().toUpperCase(),
       limit: Math.min(input.limit, 10),

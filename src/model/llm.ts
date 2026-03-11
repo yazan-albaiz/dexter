@@ -14,6 +14,7 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import { callLlmResponses } from './responses-api';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
@@ -139,7 +140,7 @@ export function getChatModel(
   return factory(modelName, opts);
 }
 
-interface CallLlmOptions {
+export interface CallLlmOptions {
   model?: string;
   systemPrompt?: string;
   outputSchema?: z.ZodType<unknown>;
@@ -204,6 +205,11 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
+  const provider = resolveProvider(model);
+  if (provider.id === 'chatgpt') {
+    return callLlmResponses(prompt, { ...options, model });
+  }
+
   const llm = getChatModel(model, false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,7 +222,6 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   }
 
   const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
   let result;
 
   if (provider.id === 'anthropic') {

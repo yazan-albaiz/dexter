@@ -33,6 +33,11 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
   ],
+  chatgpt: [
+    { id: 'chatgpt:gpt-5.4', displayName: 'GPT-5.4' },
+    { id: 'chatgpt:gpt-4o', displayName: 'GPT-4o' },
+    { id: 'chatgpt:gpt-4.1-mini', displayName: 'GPT-4.1 Mini' },
+  ],
 };
 
 export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({

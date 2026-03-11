@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useEdgar, edgarGetInsiderTrades } from './edgar-api.js';
 
 const REDUNDANT_INSIDER_FIELDS = ['issuer'] as const;
 
@@ -40,6 +41,10 @@ export const getInsiderTrades = new DynamicStructuredTool({
   description: `Retrieves insider trading transactions for a given company ticker. Insider trades include purchases and sales of company stock by executives, directors, and other insiders. This data is sourced from SEC Form 4 filings. Use filing_date filters to narrow down results by date range.`,
   schema: InsiderTradesInputSchema,
   func: async (input) => {
+    if (useEdgar()) {
+      const data = await edgarGetInsiderTrades(input.ticker, input.limit);
+      return formatToolResult(data);
+    }
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker.toUpperCase(),
       limit: input.limit,

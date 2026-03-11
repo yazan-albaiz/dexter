@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 import { getProviderById } from '@/providers';
+import { isOAuthLoggedIn } from '../auth/openai-oauth';
 
 // Load .env on module import
 config({ quiet: true });
@@ -14,6 +15,9 @@ export function getProviderDisplayName(providerId: string): string {
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
+  if (providerId === 'chatgpt') {
+    return isOAuthLoggedIn();
+  }
   const apiKeyName = getApiKeyNameForProvider(providerId);
   if (!apiKeyName) return true;
   return checkApiKeyExists(apiKeyName);

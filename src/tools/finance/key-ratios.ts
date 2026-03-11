@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useYahooFinance, yahooGetKeyRatios, yahooGetHistoricalKeyRatios } from './yahoo-api.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -17,6 +18,10 @@ export const getKeyRatios = new DynamicStructuredTool({
     'Fetches the latest financial metrics snapshot for a company, including valuation ratios (P/E, P/B, P/S, EV/EBITDA, PEG), profitability (margins, ROE, ROA, ROIC), liquidity (current/quick/cash ratios), leverage (debt/equity, debt/assets), per-share metrics (EPS, book value, FCF), and growth rates (revenue, earnings, EPS, FCF, EBITDA).',
   schema: KeyRatiosInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const data = await yahooGetKeyRatios(input.ticker);
+      return formatToolResult(data);
+    }
     const ticker = input.ticker.trim().toUpperCase();
     const params = { ticker };
     const { data, url } = await callApi('/financial-metrics/snapshot/', params);
@@ -71,6 +76,10 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
   description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
   schema: HistoricalKeyRatiosInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const data = await yahooGetHistoricalKeyRatios(input.ticker, input.period, input.limit);
+      return formatToolResult(data);
+    }
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker,
       period: input.period,

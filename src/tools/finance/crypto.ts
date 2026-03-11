@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useYahooFinance, yahooGetCryptoPrice, yahooGetCryptoPrices } from './yahoo-api.js';
 
 const CryptoPriceSnapshotInputSchema = z.object({
   ticker: z
@@ -16,6 +17,10 @@ export const getCryptoPriceSnapshot = new DynamicStructuredTool({
   description: `Fetches the most recent price snapshot for a specific cryptocurrency, including the latest price, trading volume, and other open, high, low, and close price data. Ticker format: use 'CRYPTO-USD' for USD prices (e.g., 'BTC-USD') or 'CRYPTO-CRYPTO' for crypto-to-crypto prices (e.g., 'BTC-ETH' for Bitcoin priced in Ethereum).`,
   schema: CryptoPriceSnapshotInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const data = await yahooGetCryptoPrice(input.ticker);
+      return formatToolResult(data);
+    }
     const params = { ticker: input.ticker };
     const { data, url } = await callApi('/crypto/prices/snapshot/', params);
     return formatToolResult(data.snapshot || {}, [url]);
@@ -45,6 +50,10 @@ export const getCryptoPrices = new DynamicStructuredTool({
   description: `Retrieves historical price data for a cryptocurrency over a specified date range, including open, high, low, close prices, and volume. Ticker format: use 'CRYPTO-USD' for USD prices (e.g., 'BTC-USD') or 'CRYPTO-CRYPTO' for crypto-to-crypto prices (e.g., 'BTC-ETH' for Bitcoin priced in Ethereum).`,
   schema: CryptoPricesInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const data = await yahooGetCryptoPrices(input.ticker, input.start_date, input.end_date);
+      return formatToolResult(data);
+    }
     const params = {
       ticker: input.ticker,
       interval: input.interval,
@@ -66,6 +75,9 @@ export const getCryptoTickers = new DynamicStructuredTool({
   description: `Retrieves the list of available cryptocurrency tickers that can be used with the crypto price tools.`,
   schema: z.object({}),
   func: async () => {
+    if (useYahooFinance()) {
+      return 'Crypto ticker listing is not available with Yahoo Finance. Use standard crypto symbols like BTC-USD, ETH-USD, SOL-USD.';
+    }
     const { data, url } = await callApi('/crypto/prices/tickers/', {});
     return formatToolResult(data.tickers || [], [url]);
   },

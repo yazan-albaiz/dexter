@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "bun run src/index.tsx",
+    "login": "bun run src/index.tsx login",
     "dev": "bun --watch run src/index.tsx",
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
@@ -37,6 +38,7 @@
     "linkedom": "^0.18.12",
     "playwright": "^1.52.0",
     "qrcode-terminal": "^0.12.0",
+    "yahoo-finance2": "^3.13.2",
     "zod": "^4.1.13"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useYahooFinance, yahooGetStockPrice, yahooGetStockPrices } from './yahoo-api.js';
 
 export const STOCK_PRICE_DESCRIPTION = `
 Fetches current stock price snapshots for equities, including open, high, low, close prices, volume, and market cap. Powered by Financial Datasets.
@@ -19,6 +20,10 @@ export const getStockPrice = new DynamicStructuredTool({
     'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap.',
   schema: StockPriceInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const snapshot = await yahooGetStockPrice(input.ticker);
+      return formatToolResult(snapshot);
+    }
     const ticker = input.ticker.trim().toUpperCase();
     const params = { ticker };
     const { data, url } = await callApi('/prices/snapshot/', params);
@@ -44,6 +49,10 @@ export const getStockPrices = new DynamicStructuredTool({
     'Retrieves historical price data for a stock over a specified date range, including open, high, low, close prices and volume.',
   schema: StockPricesInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      const prices = await yahooGetStockPrices(input.ticker, input.start_date, input.end_date, input.interval);
+      return formatToolResult(prices);
+    }
     const params = {
       ticker: input.ticker.trim().toUpperCase(),
       interval: input.interval,
@@ -64,6 +73,9 @@ export const getStockTickers = new DynamicStructuredTool({
   description: 'Retrieves the list of available stock tickers that can be used with the stock price tools.',
   schema: z.object({}),
   func: async () => {
+    if (useYahooFinance()) {
+      return 'Ticker listing is not available with Yahoo Finance. Use specific ticker symbols directly (e.g., AAPL, MSFT, GOOGL).';
+    }
     const { data, url } = await callApi('/prices/snapshot/tickers/', {});
     return formatToolResult(data.tickers || [], [url]);
   },

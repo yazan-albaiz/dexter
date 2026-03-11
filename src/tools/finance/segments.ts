@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { useYahooFinance } from './yahoo-api.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -24,6 +25,9 @@ export const getSegmentedRevenues = new DynamicStructuredTool({
   description: `Provides a detailed breakdown of a company's revenue by operating segments, such as products, services, or geographic regions. Useful for analyzing the composition of a company's revenue.`,
   schema: SegmentedRevenuesInputSchema,
   func: async (input) => {
+    if (useYahooFinance()) {
+      return 'Segmented revenue data is not available with Yahoo Finance. Configure FINANCIAL_DATASETS_API_KEY for this feature, or use the income statement data for total revenue figures.';
+    }
     const params = {
       ticker: input.ticker,
       period: input.period,
