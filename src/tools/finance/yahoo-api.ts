@@ -15,7 +15,7 @@ export function useYahooFinance(): boolean {
 // ---------------------------------------------------------------------------
 
 export async function yahooGetStockPrice(ticker: string) {
-  const quote = await yahooFinance.quote(ticker) as any;
+  const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as any;
   return {
     ticker: quote.symbol,
     price: quote.regularMarketPrice,
@@ -57,7 +57,7 @@ export async function yahooGetStockPrices(
     period1: startDate,
     period2: endDate,
     interval: (intervalMap[interval] || '1d') as any,
-  }) as any;
+  }, { validateResult: false }) as any;
 
   const prices = result.map((item: any) => ({
     ticker,
@@ -83,7 +83,7 @@ export async function yahooGetStockPrices(
 // ---------------------------------------------------------------------------
 
 async function getQuoteSummary(ticker: string, modules: string[]) {
-  return await yahooFinance.quoteSummary(ticker, { modules: modules as any }) as any;
+  return await yahooFinance.quoteSummary(ticker, { modules: modules as any }, { validateResult: false }) as any;
 }
 
 export async function yahooGetIncomeStatements(
@@ -307,7 +307,7 @@ export async function yahooGetAnalystEstimates(ticker: string) {
 
 export async function yahooGetCompanyNews(ticker: string, limit: number = 5) {
   // Yahoo Finance search endpoint for news
-  const result = await yahooFinance.search(ticker, { newsCount: limit }) as any;
+  const result = await yahooFinance.search(ticker, { newsCount: limit }, { validateResult: false }) as any;
   const news = (result as any).news || [];
 
   return news.map((item: any) => ({
@@ -328,7 +328,7 @@ export async function yahooGetCompanyNews(ticker: string, limit: number = 5) {
 export async function yahooGetCryptoPrice(ticker: string) {
   // Yahoo uses format like BTC-USD
   const yahooTicker = ticker.includes('-') ? ticker : `${ticker}-USD`;
-  const quote = await yahooFinance.quote(yahooTicker) as any;
+  const quote = await yahooFinance.quote(yahooTicker, {}, { validateResult: false }) as any;
 
   return {
     ticker: quote.symbol,
@@ -358,7 +358,7 @@ export async function yahooGetCryptoPrices(
     period1: startDate,
     period2: endDate,
     interval: '1d' as any,
-  }) as any;
+  }, { validateResult: false }) as any;
 
   const prices = result.map((item: any) => ({
     ticker: yahooTicker,
