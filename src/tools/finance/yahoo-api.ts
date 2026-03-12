@@ -94,25 +94,30 @@ export async function yahooGetIncomeStatements(
   const cached = readCache('yahoo-income-statements', { ticker, period, limit });
   if (cached) return cached.data;
 
-  const module = period === 'quarterly' ? 'incomeStatementHistoryQuarterly' : 'incomeStatementHistory';
-  const data = await getQuoteSummary(ticker, [module]);
-  const statements = ((data as any)[module]?.incomeStatementHistory || []).slice(0, limit);
+  const type = period === 'quarterly' ? 'quarterly' : 'annual';
+  const raw = await yahooFinance.fundamentalsTimeSeries(ticker, {
+    period1: '2020-01-01',
+    module: 'financials',
+    type,
+  }, { validateResult: false }) as any[];
+
+  const statements = raw.slice(0, limit);
 
   const result = statements.map((s: any) => ({
     ticker,
-    report_period: s.endDate instanceof Date ? s.endDate.toISOString().split('T')[0] : String(s.endDate),
-    period: period === 'quarterly' ? 'quarterly' : 'annual',
+    report_period: s.date instanceof Date ? s.date.toISOString().split('T')[0] : String(s.date),
+    period: type,
     revenue: s.totalRevenue,
     cost_of_revenue: s.costOfRevenue,
     gross_profit: s.grossProfit,
     operating_income: s.operatingIncome,
     net_income: s.netIncome,
-    ebitda: s.ebitda,
-    eps_basic: s.netIncome && s.netIncome, // Will be refined below
-    research_and_development: s.researchDevelopment,
-    selling_general_and_administrative: s.sellingGeneralAdministrative,
+    ebitda: s.EBITDA,
+    eps_basic: s.basicEPS,
+    research_and_development: s.researchAndDevelopment,
+    selling_general_and_administrative: s.sellingGeneralAndAdministration,
     interest_expense: s.interestExpense,
-    income_tax_expense: s.incomeTaxExpense,
+    income_tax_expense: s.taxProvision,
   }));
 
   writeCache('yahoo-income-statements', { ticker, period, limit }, result as any, 'yahoo-finance');
@@ -127,26 +132,31 @@ export async function yahooGetBalanceSheets(
   const cached = readCache('yahoo-balance-sheets', { ticker, period, limit });
   if (cached) return cached.data;
 
-  const module = period === 'quarterly' ? 'balanceSheetHistoryQuarterly' : 'balanceSheetHistory';
-  const data = await getQuoteSummary(ticker, [module]);
-  const sheets = ((data as any)[module]?.balanceSheetStatements || []).slice(0, limit);
+  const type = period === 'quarterly' ? 'quarterly' : 'annual';
+  const raw = await yahooFinance.fundamentalsTimeSeries(ticker, {
+    period1: '2020-01-01',
+    module: 'balance-sheet',
+    type,
+  }, { validateResult: false }) as any[];
+
+  const sheets = raw.slice(0, limit);
 
   const result = sheets.map((s: any) => ({
     ticker,
-    report_period: s.endDate instanceof Date ? s.endDate.toISOString().split('T')[0] : String(s.endDate),
-    period: period === 'quarterly' ? 'quarterly' : 'annual',
+    report_period: s.date instanceof Date ? s.date.toISOString().split('T')[0] : String(s.date),
+    period: type,
     total_assets: s.totalAssets,
-    total_liabilities: s.totalLiab,
-    total_equity: s.totalStockholderEquity,
-    cash_and_equivalents: s.cash,
-    short_term_investments: s.shortTermInvestments,
-    total_current_assets: s.totalCurrentAssets,
-    total_current_liabilities: s.totalCurrentLiabilities,
+    total_liabilities: s.totalLiabilitiesNetMinorityInterest,
+    total_equity: s.stockholdersEquity,
+    cash_and_equivalents: s.cashAndCashEquivalents,
+    short_term_investments: s.otherShortTermInvestments,
+    total_current_assets: s.currentAssets,
+    total_current_liabilities: s.currentLiabilities,
     long_term_debt: s.longTermDebt,
-    short_term_debt: s.shortLongTermDebt,
+    short_term_debt: s.currentDebt,
     retained_earnings: s.retainedEarnings,
-    total_debt: (s.longTermDebt || 0) + (s.shortLongTermDebt || 0),
-    net_cash: (s.cash || 0) - ((s.longTermDebt || 0) + (s.shortLongTermDebt || 0)),
+    total_debt: s.totalDebt,
+    net_cash: (s.cashAndCashEquivalents || 0) - (s.totalDebt || 0),
   }));
 
   writeCache('yahoo-balance-sheets', { ticker, period, limit }, result as any, 'yahoo-finance');
@@ -161,24 +171,28 @@ export async function yahooGetCashFlowStatements(
   const cached = readCache('yahoo-cash-flow', { ticker, period, limit });
   if (cached) return cached.data;
 
-  const module = period === 'quarterly' ? 'cashflowStatementHistoryQuarterly' : 'cashflowStatementHistory';
-  const data = await getQuoteSummary(ticker, [module]);
-  const flows = ((data as any)[module]?.cashflowStatements || []).slice(0, limit);
+  const type = period === 'quarterly' ? 'quarterly' : 'annual';
+  const raw = await yahooFinance.fundamentalsTimeSeries(ticker, {
+    period1: '2020-01-01',
+    module: 'cash-flow',
+    type,
+  }, { validateResult: false }) as any[];
+
+  const flows = raw.slice(0, limit);
 
   const result = flows.map((s: any) => ({
     ticker,
-    report_period: s.endDate instanceof Date ? s.endDate.toISOString().split('T')[0] : String(s.endDate),
-    period: period === 'quarterly' ? 'quarterly' : 'annual',
-    operating_cash_flow: s.totalCashFromOperatingActivities,
-    investing_cash_flow: s.totalCashflowsFromInvestingActivities,
-    financing_cash_flow: s.totalCashFromFinancingActivities,
-    capital_expenditure: s.capitalExpenditures,
-    free_cash_flow:
-      (s.totalCashFromOperatingActivities || 0) + (s.capitalExpenditures || 0),
-    dividends_paid: s.dividendsPaid,
-    share_repurchases: s.repurchaseOfStock,
-    net_change_in_cash: s.changeInCash,
-    depreciation_and_amortization: s.depreciation,
+    report_period: s.date instanceof Date ? s.date.toISOString().split('T')[0] : String(s.date),
+    period: type,
+    operating_cash_flow: s.operatingCashFlow,
+    investing_cash_flow: s.investingCashFlow,
+    financing_cash_flow: s.financingCashFlow,
+    capital_expenditure: s.capitalExpenditure,
+    free_cash_flow: s.freeCashFlow,
+    dividends_paid: s.cashDividendsPaid,
+    share_repurchases: s.repurchaseOfCapitalStock,
+    net_change_in_cash: s.changesInCash,
+    depreciation_and_amortization: s.depreciationAndAmortization,
   }));
 
   writeCache('yahoo-cash-flow', { ticker, period, limit }, result as any, 'yahoo-finance');

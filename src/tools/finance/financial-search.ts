@@ -6,6 +6,19 @@ import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 
+async function parallelLimit<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+  async function next(): Promise<void> {
+    const i = index++;
+    if (i >= tasks.length) return;
+    results[i] = await tasks[i]();
+    await next();
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, () => next()));
+  return results;
+}
+
 /**
  * Rich description for the financial_search tool.
  * Used in the system prompt to guide the LLM on when and how to use this tool.
@@ -176,34 +189,33 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
       // 3. Execute tool calls in parallel
       const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
       onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
-      const results = await Promise.all(
-        toolCalls.map(async (tc) => {
-          try {
-            const tool = FINANCE_TOOL_MAP.get(tc.name);
-            if (!tool) {
-              throw new Error(`Tool '${tc.name}' not found`);
-            }
-            const rawResult = await tool.invoke(tc.args);
-            const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-            const parsed = JSON.parse(result);
-            return {
-              tool: tc.name,
-              args: tc.args,
-              data: parsed.data,
-              sourceUrls: parsed.sourceUrls || [],
-              error: null,
-            };
-          } catch (error) {
-            return {
-              tool: tc.name,
-              args: tc.args,
-              data: null,
-              sourceUrls: [],
-              error: error instanceof Error ? error.message : String(error),
-            };
+      const thunks = toolCalls.map((tc) => async () => {
+        try {
+          const tool = FINANCE_TOOL_MAP.get(tc.name);
+          if (!tool) {
+            throw new Error(`Tool '${tc.name}' not found`);
           }
-        })
-      );
+          const rawResult = await tool.invoke(tc.args);
+          const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+          const parsed = JSON.parse(result);
+          return {
+            tool: tc.name,
+            args: tc.args,
+            data: parsed.data,
+            sourceUrls: parsed.sourceUrls || [],
+            error: null,
+          };
+        } catch (error) {
+          return {
+            tool: tc.name,
+            args: tc.args,
+            data: null,
+            sourceUrls: [],
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      });
+      const results = await parallelLimit(thunks, 5);
 
       // 4. Combine results
       const successfulResults = results.filter((r) => r.error === null);
