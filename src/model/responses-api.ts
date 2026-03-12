@@ -13,6 +13,7 @@ interface CallLlmOptions {
   systemPrompt?: string;
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
+  toolChoice?: 'auto' | 'required';
   signal?: AbortSignal;
 }
 
@@ -21,6 +22,7 @@ interface ResponsesApiTool {
   name?: string;
   description?: string;
   parameters?: Record<string, unknown>;
+  strict?: boolean;
 }
 
 interface ResponsesApiMessage {
@@ -68,11 +70,11 @@ function zodV4ToJsonSchema(schema: any): Record<string, unknown> {
         properties[key] = zodV4ToJsonSchema(val);
         const valDef = (val as any)?._zpiDef ?? (val as any)?._def;
         const valType = valDef?.type ?? valDef?.typeName;
-        if (valType !== 'optional') {
+        if (valType !== 'optional' && valType !== 'default') {
           required.push(key);
         }
       }
-      return { ...base, type: 'object', properties, ...(required.length ? { required } : {}) };
+      return { ...base, type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false };
     }
     case 'string':
       return { ...base, type: 'string' };
@@ -93,7 +95,11 @@ function zodV4ToJsonSchema(schema: any): Record<string, unknown> {
     }
     case 'optional': {
       const inner = def.innerType ?? def.wrapped;
-      return inner ? zodV4ToJsonSchema(inner) : { ...base };
+      return inner ? { ...zodV4ToJsonSchema(inner), ...base } : { ...base };
+    }
+    case 'default': {
+      const inner = def.innerType ?? def.wrapped;
+      return inner ? { ...zodV4ToJsonSchema(inner), ...base } : { ...base };
     }
     case 'nullable': {
       const inner = def.innerType ?? def.wrapped;
@@ -112,9 +118,6 @@ function convertToolsToResponsesFormat(tools: StructuredToolInterface[]): Respon
     description: tool.description,
     parameters: zodV4ToJsonSchema(tool.schema),
   }));
-
-  // Add built-in web search (free with ChatGPT OAuth, no API key needed)
-  responsesTools.push({ type: 'web_search' });
 
   return responsesTools;
 }
@@ -158,6 +161,9 @@ export async function callLlmResponses(
 
   if (options.tools && options.tools.length > 0) {
     requestBody.tools = convertToolsToResponsesFormat(options.tools);
+    if (options.toolChoice) {
+      (requestBody as any).tool_choice = options.toolChoice;
+    }
   }
 
   if (options.outputSchema) {
@@ -203,24 +209,26 @@ export async function callLlmResponses(
       }
 
       const responseText = await response.text();
-      let data: any = null;
+      let completedData: any = null;
+
       for (const line of responseText.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data:')) continue;
         const jsonStr = trimmed.slice('data:'.length).trim();
-        if (!jsonStr) continue;
+        if (!jsonStr || jsonStr === '[DONE]') continue;
         try {
           const event = JSON.parse(jsonStr);
-          if (event.type === 'response.completed') {
-            data = event.response;
+          if (event.type === 'response.completed' && event.response) {
+            completedData = event.response;
             break;
           }
         } catch {
           // skip malformed lines
         }
       }
-      if (!data) throw new Error('No response.completed event found in SSE stream');
-      return parseResponsesApiOutput(data, options);
+
+      if (!completedData) throw new Error('No response.completed event found in SSE stream');
+      return parseResponsesApiOutput(completedData, options);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') throw err;
       lastError = err as Error;

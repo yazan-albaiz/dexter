@@ -136,6 +136,7 @@ export function createFinancialMetrics(model: string): DynamicStructuredTool {
         model,
         systemPrompt: buildRouterPrompt(),
         tools: METRICS_TOOLS,
+        toolChoice: 'required',
       });
       const aiMessage = response as AIMessage;
 

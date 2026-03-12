@@ -163,6 +163,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
         model,
         systemPrompt: buildRouterPrompt(),
         tools: FINANCE_TOOLS,
+        toolChoice: 'required',
       });
       const aiMessage = response as AIMessage;
 

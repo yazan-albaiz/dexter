@@ -145,6 +145,7 @@ export interface CallLlmOptions {
   systemPrompt?: string;
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
+  toolChoice?: 'auto' | 'required';
   signal?: AbortSignal;
 }
 

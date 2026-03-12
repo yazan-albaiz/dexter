@@ -248,6 +248,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
         model,
         systemPrompt: buildStep2Prompt(input.query, filingsResult.data, itemTypes),
         tools: STEP2_TOOLS,
+        toolChoice: 'required',
       });
       const step2Message = step2Response as AIMessage;
 
